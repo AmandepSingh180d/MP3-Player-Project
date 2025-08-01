@@ -1,13 +1,3 @@
-//Version 1
-//CheckPoint 1
-//We have achieved a somewhat functional mp3 player
-//The two things that need fixing are
-//1) The delay on the joystick
-//2) The song ending and not going back
-//3) Cleaning the code to be more readable
-//3.1) Cleaning a lot of the not needed variables
-//3,2) Possibly creating structs
-//4) Possibly making some custom
 #include "Timer.h"
 #include "Adafruit_LiquidCrystal.h"
 // Depending on the LiquidCrystal library you are able to install, it might be:
@@ -17,13 +7,7 @@
 // Sound Variables  
 int buzzer = 8;
 int sw = 10;
-int selectedSong = 0;
-int userPress=0;
-int nextPage = 0;
-int menuOption2 = 0;
-int menuOption3 = 0;
-int pause = 0;
-int goBack = 0;
+
 // == Song 1 ==
 int song1[] = {
 NOTE_E4, NOTE_C5, NOTE_B1, NOTE_F3, NOTE_C4, 
@@ -100,10 +84,10 @@ int TickFct_SoundOutput(int state);
 int TickFct_Controller(int state);
 
 // Task Enumeration Definitions
-enum LO_States {LO_init, LO_MenuOptionA, LO_MenuOptionB, LO_MenuOptionC};
+enum LO_States {LO_init, LO_MenuOptionA, LO_MenuOptionB};
 enum JI_States {JI_init, JI_Sample};
-enum SO_States {SO_init, SO_SoundOn, SO_SoundOn2, SO_SoundOn3, SO_SoundOff, SO_SoundOff2, SO_SoundOff3,SO_Pause};
-enum C_States {C_init, C_T1, C_T2};
+enum SO_States {SO_init, SO_SoundOn, SO_SoundOff};
+enum C_States {C_Init, C_Start, C_1, C_2, C_3, C_4, C_5};
 
 
 
@@ -127,27 +111,32 @@ void LCDWriteLines(String line1, String line2) {
   lcd.print(line2);
 }
 
-// Task Function Definitions
 int readStick() { //returns 1 if the joystick was up, 2 if it is down, 0 for anything else
   // you may have to read from A0 instead of A1 depending on how you orient the joystick
-  if (analogRead(A1) > 800) {
+  if(digitalRead(sw) == HIGH){
+    return 5;
+  }
+  else if (analogRead(A1) > 800) {
     return 2; // down
   }
   else if (analogRead(A1) < 200) {
     return 1; // up
   }
   else if (analogRead(A0) < 200) {
-    return 4; // right
+    return 3; // right
   }
   else if (analogRead(A0) > 800) {
-    return 3; // left
+    return 4; // left
   }
   else {
     return 0;
   }
 
 }
+// Task Function Definitions
+
 int menuOption = 0;
+int menuOption2 = 0;
 
 // Task 1
 int TickFct_LCDOutput(int state) {
@@ -157,76 +146,30 @@ int TickFct_LCDOutput(int state) {
       LCDWriteLines("Song 1  Song 2", "Song 3  Start");
     break;
     case LO_MenuOptionA:
-      if(menuOption == 1 && nextPage == 0) {
-        state = LO_MenuOptionB;
-        LCDWriteLines("Song 1* Song 2", "Song 3  Start");
+      if(menuOption2 == 0) { //BR
+        state = LO_MenuOptionA;
+        //lcd.setCursor(6,1);
       }
-      else if(menuOption == 2 && nextPage == 0) {
-        state = LO_MenuOptionB;
-        LCDWriteLines("Song 1 *Song 2", "Song 3  Start");
+      else if(menuOption2 == 1) { // SONG 1 selected
+        state = LO_MenuOptionA;
+        LCDWriteLines("Playing  Song 1", "Pause    Play");
+        //lcd.setCursor(5,1);
       }
-      else if(menuOption == 3 && nextPage == 0) {
-        state = LO_MenuOptionB;
-        LCDWriteLines("Song 1  Song 2", "Song 3* Start");
+      else if(menuOption2 == 2) { // SONG 2 selected
+        state = LO_MenuOptionA;
+        LCDWriteLines("Playing  Song 2", "Pause    Play");
+       // lcd.setCursor(6,1);
       }
-      else if(nextPage == 1){
-        state = LO_MenuOptionC;
-      }
-      else{
-        state = LO_MenuOptionB;
+      else if(menuOption2 == 3) { // SOng 3 selected
+        state = LO_MenuOptionA;
+        LCDWriteLines("Playing  Song 3", "Pause    Play");
+        //lcd.setCursor(6,1);
       }
     break;
     case LO_MenuOptionB:
       if(menuOption == 0) {
         state = LO_MenuOptionA;
       LCDWriteLines("Song 1  Song 2", "Song 3  Start");
-      }
-      else{
-        state=LO_MenuOptionA;
-      }
-    break;
-    case LO_MenuOptionC:
-      //SONG1
-      if(menuOption3 == 0 && selectedSong == 1 && goBack == 0){
-        state = LO_MenuOptionC;
-        LCDWriteLines("Playing Song 1", "Pause    Play");
-      }
-      else if(menuOption3 == 1 && selectedSong == 1 && goBack == 0){
-        state = LO_MenuOptionC;
-        LCDWriteLines("Playing Song 1", "Pause  * Play");
-      }
-      else if(menuOption3 == 2 && selectedSong == 1 && goBack == 0){
-        state = LO_MenuOptionC;
-        LCDWriteLines("Playing Song 1", "Pause *  Play");
-      }
-      //SONG2
-      else if(menuOption3 == 0 && selectedSong == 2 && goBack == 0){
-        state = LO_MenuOptionC;
-        LCDWriteLines("Playing Song 2", "Pause    Play");
-      }
-      else if(menuOption3 == 1 && selectedSong == 2 && goBack == 0){
-        state = LO_MenuOptionC;
-        LCDWriteLines("Playing Song 2", "Pause  *  Play");
-      }
-      else if(menuOption3 == 2 && selectedSong == 2 && goBack == 0){
-        state = LO_MenuOptionC;
-        LCDWriteLines("Playing Song 2", "Pause *  Play");
-      }
-      //SONG 3
-      else if(menuOption3 == 0 && selectedSong == 3 && goBack == 0){
-        state = LO_MenuOptionC;
-        LCDWriteLines("Playing Song 3", "Pause    Play");
-      }
-      else if(menuOption3 == 1 && selectedSong == 3 && goBack == 0){
-        state = LO_MenuOptionC;
-        LCDWriteLines("Playing Song 3", "Pause  * Play");
-      }
-      else if(menuOption3 == 2 && selectedSong == 3 && goBack == 0){
-        state = LO_MenuOptionC;
-        LCDWriteLines("Playing Song 3", "Pause *  Play");
-      }
-      else if(goBack != 0){
-        state = LO_MenuOptionA;
       }
     break;
   }
@@ -242,208 +185,70 @@ int TickFct_LCDOutput(int state) {
   return state;
 }
 // Task 2
-char posX = 7;
-char posY = 1;
-int TickFct_JoystickInput(int state) { //WILL GIVE CURSOR POSITION
+int TickFct_JoystickInput(int state) {
   switch (state) { // State Transitions
     case JI_init:
     state = JI_Sample;
-    lcd.setCursor(posX,posY);
-    lcd.blink();
     break;
     case JI_Sample:
-    lcd.setCursor(posX,posY);
+      if(readStick() == 0){
+        state = JI_Sample;
+        menuOption = 0;
+      }
+      else if(readStick() == 1){ //UP
+        state=JI_Sample;
+        menuOption = 2;
+      }
+      else if(readStick() == 2){ //DOwn
+          state = JI_Sample;
+          menuOption =1;
+      }
+      else if(readStick() == 3){ //Right
+          state = JI_Sample;
+          menuOption=3;
+      }
+      else if(readStick() == 4){ //Left
+          state = JI_Sample;
+          menuOption=4;
+      }
+      else if(readStick() == 5){ //Left
+          state = JI_Sample;
+          menuOption=5;
+      }
     break;
   }
 
    switch (state) { // State Actions
     case JI_Sample:
-      int input = readStick();
-    if(nextPage == 0){
-      if(digitalRead(sw)== LOW){
-        userPress =1;
-      } 
-      else{
-        userPress=0;
-      }
-      switch(input){
-        case 0:
-        break;
-        case 1:
-          if(posY >=1 ){
-            posY--;
-          }
-          else if(posY < 1){
-            posY=0;
-          }
-        break;
-        case 2:
-          if(posY <=1 ){
-            posY=1;
-          }
-          else if(posY > 1){
-            posY++;
-          }
-        break;
-        case 3: //RIGHT
-          if(posX >= 7){
-            posX=7;
-          }
-          else if(posX < 7){
-            posX++;
-          }
-        break;
-        case 4:
-          if(posX >= 7){
-            posX--;
-          }
-          else if(posX < 7){
-            posX=6;
-          }
-        break;
-      }
-    }
-    else{
-      if(digitalRead(sw)== LOW){
-        userPress =1;
-      }
-       else if(readStick() == 1){
-        state = C_T1;
-        menuOption = 0;
-        menuOption2=  0;
-        menuOption3 = 0;
-        selectedSong = 0;
-        nextPage = 0;
-        goBack = 1;
-      }
-      else{
-        userPress=0;
-      }
-      switch(input){
-        case 3:
-          if(posX >= 7){
-            posX=7;
-          }
-          else if(posX < 7){
-            posX++;
-          }
-        break;
-        case 4:
-          if(posX >= 7){
-            posX--;
-          }
-          else if(posX < 7){
-            posX=6;
-          }
-        break;
-      }
-    }
+      
+    break;
   }
   return state;
 }
 // Sound Output
 int counter = 0;
 int note = 0;
-int soundflag= 1;
 int TickFct_SoundOutput(int state) {
   switch (state) { // State Transitions
     case SO_init:
-      goBack = 0;
-      if(selectedSong == 0){
-        state=SO_init;
-      }
-      else if(selectedSong == 1 && nextPage == 1){
-        soundflag =1;
-        state=SO_SoundOn;
-      }
-      else if(selectedSong == 2 && nextPage == 1){
-        soundflag = 2;
-        state=SO_SoundOn2;
-      }
-      else if(selectedSong == 3 && nextPage == 1){
-        soundflag=3;
-        state=SO_SoundOn3;
-      }
+      //state = SO_SoundOn;
     break;
     case SO_SoundOn:
-      if(counter >= song1_time[note] && pause == 0 && goBack == 0) {
+      if(counter >= song1_time[note]) {
          state = SO_SoundOff;
          note++;
          counter = 0;
          note = note % 20;
       }
-      else if(goBack != 0){
-        state = SO_init;
-      }
-      else{
-        state = SO_Pause;
-      }
-    break;
-    case SO_SoundOn2:
-      if(counter >= song2_time[note] && pause == 0 && goBack == 0) {
-         state = SO_SoundOff2;
-         note++;
-         counter = 0;
-         note = note % 20;
-      }
-      else if(goBack != 0){
-        state = SO_init;
-      }
-      else{
-        state = SO_Pause;
-      }
-    break;
-    case SO_SoundOn3:
-      if(counter >= song3_time[note] && pause == 0 && goBack == 0) {
-         state = SO_SoundOff3;
-         note++;
-         counter = 0;
-         note = note % 20;
-      }
-      else if(goBack != 0){
-        state = SO_init;
-      }
-      else{
-        state = SO_Pause;
-      }
     break;
     case SO_SoundOff:
       state = SO_SoundOn;
     break;
-    case SO_SoundOff2:
-      state = SO_SoundOn2;
-    break;
-    case SO_SoundOff3:
-      state = SO_SoundOn3;
-    break;
-    case SO_Pause:
-      if(pause == 1){
-        state = SO_Pause;
-      }
-      else if(pause == 0){
-        if(soundflag == 1){
-          state = SO_SoundOn;
-        }
-        else if(soundflag == 2){
-          state = SO_SoundOn2;
-        }
-        else if(soundflag == 3){
-          state = SO_SoundOn3;
-        }
-      }
-    break;
+    
   }
    switch (state) { // State Actions
     case SO_SoundOn:
       tone(buzzer, song1[note], periodSoundOutput * song1_time[note]);
-      counter++;
-    break;
-    case SO_SoundOn2:
-      tone(buzzer, song2[note], periodSoundOutput * song2_time[note]);
-      counter++;
-    break;
-    case SO_SoundOn3:
-      tone(buzzer, song3[note], periodSoundOutput * song3_time[note]);
       counter++;
     break;
     case SO_SoundOff:
@@ -455,72 +260,91 @@ int TickFct_SoundOutput(int state) {
 }
 
 // Task 4 (Unused)
-
-int TickFct_Controller(int state) { //CHoose a song and when start
+int posX = 7;
+int posY = 1;
+int TickFct_Controller(int state) {
   switch (state) { // State Transitions
-    case C_init:
-      state = C_T1;
+    case C_Init:
+      state = C_Start;
     break;
-    case C_T1:
-      if(menuOption2 == 0){
-        state = C_T1;
+
+    case C_Start:
+      lcd.blink();
+      lcd.setCursor(posX, posY);
+      if(menuOption == 0){
+        state=C_Init;
       }
-      else{
-        state = C_T2;
+      else if(menuOption == 1){
+        state=C_1;
+      }
+      else if(menuOption == 2){
+        state=C_2;
+      }
+      else if(menuOption == 3){
+        state = C_3;
+      }
+      else if(menuOption == 4){
+        state = C_4;
+      }
+      else if(menuOption == 5){
+        lcd.noBlink();
+        lcd.print("*");
+        state = C_5;
       }
     break;
-    case C_T2:
-      if(menuOption2 != 0){
-        state = C_T2;
-      }
-      else{
-        state = C_T1;
-      }
+    case C_1:
+      state=C_Start;
     break;
+    case C_2:
+      state=C_Start;
+    break;
+    case C_3:
+      state=C_Start;
+    break;
+    case C_4:
+      state=C_Start;
+    break;
+    case C_5:
+      state=C_Start;
+    break;
+    
   }
 
    switch (state) { // State Actions
-    case C_init:
+    case C_Init:
     break;
-    case C_T1:
-      if(posX == 6 && posY == 0 && userPress == 1){ //TL
-        selectedSong=1;
-        menuOption = 1;
+    case C_Start:
+    break;
+    case C_1: //UP
+      if(posY <=0 ){
+        posY=0;
       }
-      else if(posX == 7 && posY == 0 && userPress == 1){ //TR
-        selectedSong=2;
-        menuOption = 2; 
-      }
-      else if(posX == 6 && posY == 1 && userPress == 1){ //BL
-        selectedSong=3;
-        menuOption = 3; 
-      }
-      else if(posX == 7 && posY == 1 && userPress == 1){ //BR
-        if(selectedSong == 1){
-          menuOption2 =1;
-          nextPage = 1;
-        }
-        else if(selectedSong == 2){
-          menuOption2 = 2;
-          nextPage = 1;
-        }
-        else if(selectedSong == 3){
-          menuOption2 = 3;
-          nextPage = 1;
-        }
-        else if(selectedSong == 0){
-          menuOption2 = 0;
-        }
+      else if(posY > 0){
+        posY--;
       }
     break;
-    case C_T2:
-      if(posX == 7 && posY == 1 && userPress == 1){ //TR
-        menuOption3 = 1; 
-        pause = 0;
+    case C_2: //DOWN
+      if(posY >= 1){
+        posY=1;
       }
-      else if(posX == 6 && posY == 1 && userPress == 1){
-        menuOption3 = 2;
-        pause = 1;
+      else if(posY < 1){
+        posY++;
+      }
+    break;
+    case C_3: //Right
+      if(posX >= 7){
+        posX=7;
+      }
+      else if(posX < 7){
+        posX++;
+      }
+    break;
+    case C_4: //Right
+      if(posX >= 7){
+        posX--;
+      }
+      else if(posX < 7){
+        posX=6;
       }
     break;
   }
@@ -546,7 +370,7 @@ void InitializeTasks() {
   tasks[i].elapsedTime = tasks[i].period;
   tasks[i].TickFct = &TickFct_SoundOutput;
   ++i;
-  tasks[i].state = C_init;
+  tasks[i].state = C_Init;
   tasks[i].period = periodController;
   tasks[i].elapsedTime = tasks[i].period;
   tasks[i].TickFct = &TickFct_Controller;
@@ -560,7 +384,6 @@ void setup() {
   TimerSet(tasksPeriodGCD);
   TimerOn();
   Serial.begin(9600);
-  pinMode(sw, INPUT_PULLUP);
   // Initialize Outputs
   lcd.begin(16, 2);
   // Initialize Inputs
@@ -570,10 +393,6 @@ void setup() {
 void loop() {
   // put your main code here, to run repeatedly:
   // Task Scheduler with Timer.h
-  /*Serial.print(" ");
-  Serial.println(selectedSong);
-  Serial.print("Song ");
-  Serial.println(selectedSong);
-  */
-  //Serial.println(goBack);
+  Serial.println(menuOption);
+  
 }
